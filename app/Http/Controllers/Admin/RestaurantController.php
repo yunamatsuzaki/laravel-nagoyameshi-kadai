@@ -6,6 +6,7 @@ use App\Models\Restaurant;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Category;
+use App\Models\RegularHoliday;
 
 class RestaurantController extends Controller
 {
@@ -32,14 +33,17 @@ class RestaurantController extends Controller
     public function create(Request $request)
     {
         $categories = Category::all();
-        return view('admin.restaurants.create', compact('categories'));
+        $regular_holidays = RegularHoliday::all();
+        return view('admin.restaurants.create', compact('categories', 'regular_holidays'));
     }
+
 
     public function store(Request $request)
     {
         $request->validate([
             'name' => 'required',
             'image' => 'image|max:2048',
+            //'image' => 'file|mimes:jpg,jpeg,png,bmp,gif,svg,webp|max:2048',//
             'description' => 'required',
             'lowest_price' => 'required|numeric|min:0|lte:highest_price',
             'highest_price' => 'required|numeric|min:0|gte:lowest_price',
@@ -53,10 +57,12 @@ class RestaurantController extends Controller
         $restaurant = new Restaurant();
         $restaurant->name = $request->input('name');
 
+        
         if ($request->hasFile('image')) {
             $image = $request->file('image')->store('public/restaurants');
             $restaurant->image = basename($image);
-        } else {
+        }
+        else {
             $restaurant->image = '';
         }
 
@@ -73,15 +79,20 @@ class RestaurantController extends Controller
         $category_ids = array_filter($request->input('category_ids'));
         $restaurant->categories()->sync($category_ids);
 
+        $regular_holiday_ids = $request->input('regular_holiday_ids');
+        $restaurant->regular_holidays()->sync($regular_holiday_ids);
+
         return redirect()->route('admin.restaurants.index')->with('flash_message', '店舗を登録しました。');
     }
 
     public function edit(Restaurant $restaurant)
     {
         $categories = Category::all();
+        $regular_holidays = RegularHoliday::all();
+
         $category_ids = $restaurant->categories->pluck('id')->toArray();
 
-        return view('admin.restaurants.edit', compact('restaurant', 'categories', 'category_ids'));
+        return view('admin.restaurants.edit', compact('restaurant', 'categories', 'category_ids', 'regular_holidays'));
     }
 
     public function update(Request $request, Restaurant $restaurant)
@@ -108,18 +119,20 @@ class RestaurantController extends Controller
         $restaurant->opening_time = $request->input('opening_time');
         $restaurant->closing_time = $request->input('closing_time');
         $restaurant->seating_capacity = $request->input('seating_capacity');
+        $restaurant->save();
 
         if ($request->hasFile('image')) {
             $image = $request->file('image')->store('public/restaurants');
             $restaurant->image = basename($image);
         }
 
-        $restaurant->save();
-
         $category_ids = array_filter($request->input('category_ids'));
         $restaurant->categories()->sync($category_ids);
 
-        return redirect()->route('admin.restaurants.index')->with('flash_message', '店舗を編集しました。');
+        $regular_holiday_ids = $request->input('regular_holiday_ids');
+        $restaurant->regular_holidays()->sync($regular_holiday_ids);
+
+        return redirect()->route('admin.restaurants.show', compact('restaurant'))->with('flash_message', '店舗を編集しました。');
     }
 
     public function destroy(Restaurant $restaurant)

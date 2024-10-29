@@ -2,43 +2,44 @@
 
 namespace App\Http\Controllers\Admin;
 
-use App\Models\Restaurant;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\Restaurant;
 use App\Models\Category;
 use App\Models\RegularHoliday;
 
+
 class RestaurantController extends Controller
 {
+
     public function index(Request $request) {
-        
+        // 検索ボックスに入力されたキーワードを取得する
         $keyword = $request->input('keyword');
-        
+
+        // キーワードが存在すれば検索を行い、そうでなければ全件取得する
         if ($keyword) {
             $restaurants = Restaurant::where('name', 'like', "%{$keyword}%")->paginate(15);
-        } 
-        else {
+        } else {
             $restaurants = Restaurant::paginate(15);
         }
 
         $total = $restaurants->total();
+
         return view('admin.restaurants.index', compact('restaurants', 'keyword', 'total'));
     }
 
-    public function create(Request $request)
-    {
+    public function create() {
         $categories = Category::all();
+
         $regular_holidays = RegularHoliday::all();
+
         return view('admin.restaurants.create', compact('categories', 'regular_holidays'));
     }
 
-
-    public function store(Request $request)
-    {
+    public function store(Request $request) {
         $request->validate([
             'name' => 'required',
             'image' => 'image|max:2048',
-            //'image' => 'file|mimes:jpg,jpeg,png,bmp,gif,svg,webp|max:2048',//
             'description' => 'required',
             'lowest_price' => 'required|numeric|min:0|lte:highest_price',
             'highest_price' => 'required|numeric|min:0|gte:lowest_price',
@@ -51,16 +52,12 @@ class RestaurantController extends Controller
 
         $restaurant = new Restaurant();
         $restaurant->name = $request->input('name');
-
-        
         if ($request->hasFile('image')) {
             $image = $request->file('image')->store('public/restaurants');
             $restaurant->image = basename($image);
-        }
-        else {
+        } else {
             $restaurant->image = '';
         }
-
         $restaurant->description = $request->input('description');
         $restaurant->lowest_price = $request->input('lowest_price');
         $restaurant->highest_price = $request->input('highest_price');
@@ -80,18 +77,22 @@ class RestaurantController extends Controller
         return redirect()->route('admin.restaurants.index')->with('flash_message', '店舗を登録しました。');
     }
 
-    public function edit(Restaurant $restaurant)
-    {
-        $categories = Category::all();
-        $regular_holidays = RegularHoliday::all();
+    public function show(Restaurant $restaurant) {
+        return view('admin.restaurants.show', compact('restaurant'));
+    }
 
+    public function edit(Restaurant $restaurant) {
+        $categories = Category::all();
+
+        // 設定されたカテゴリのIDを配列化する
         $category_ids = $restaurant->categories->pluck('id')->toArray();
+
+        $regular_holidays = RegularHoliday::all();
 
         return view('admin.restaurants.edit', compact('restaurant', 'categories', 'category_ids', 'regular_holidays'));
     }
 
-    public function update(Request $request, Restaurant $restaurant)
-    {
+    public function update(Request $request, Restaurant $restaurant) {
         $request->validate([
             'name' => 'required',
             'image' => 'image|max:2048',
@@ -102,10 +103,14 @@ class RestaurantController extends Controller
             'address' => 'required',
             'opening_time' => 'required|before:closing_time',
             'closing_time' => 'required|after:opening_time',
-            'seating_capacity' => 'required|numeric|min:0'
+            'seating_capacity' => 'required|numeric|min:0',
         ]);
-        
+
         $restaurant->name = $request->input('name');
+        if ($request->hasFile('image')) {
+            $image = $request->file('image')->store('public/restaurants');
+            $restaurant->image = basename($image);
+        }
         $restaurant->description = $request->input('description');
         $restaurant->lowest_price = $request->input('lowest_price');
         $restaurant->highest_price = $request->input('highest_price');
@@ -116,22 +121,16 @@ class RestaurantController extends Controller
         $restaurant->seating_capacity = $request->input('seating_capacity');
         $restaurant->save();
 
-        if ($request->hasFile('image')) {
-            $image = $request->file('image')->store('public/restaurants');
-            $restaurant->image = basename($image);
-        }
-
         $category_ids = array_filter($request->input('category_ids'));
         $restaurant->categories()->sync($category_ids);
 
         $regular_holiday_ids = $request->input('regular_holiday_ids');
         $restaurant->regular_holidays()->sync($regular_holiday_ids);
 
-        return redirect()->route('admin.restaurants.show', compact('restaurant'))->with('flash_message', '店舗を編集しました。');
+        return redirect()->route('admin.restaurants.show', $restaurant)->with('flash_message', '店舗を編集しました。');
     }
 
-    public function destroy(Restaurant $restaurant)
-    {
+    public function destroy(Restaurant $restaurant) {
         $restaurant->delete();
 
         return redirect()->route('admin.restaurants.index')->with('flash_message', '店舗を削除しました。');

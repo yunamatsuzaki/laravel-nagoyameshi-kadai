@@ -27,7 +27,7 @@ class ReservationTest extends TestCase
     public function test_notsubscribed_user_cannot_access_reservations_index()
     {
         $user = User::factory()->create();
-
+        //dd($user);
         $response = $this->actingAs($user)->get(route('reservations.index'));
         $response->assertRedirect(route('subscription.create'));
     }
